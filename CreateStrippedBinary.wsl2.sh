@@ -34,10 +34,19 @@ if [[ ! -f "${INPUT_FILE}" ]]; then
     exit 1
 fi
 
+if [[ -f "${STRIPPED_FILE}" && -f "${DEBUG_FILE}" && "${INPUT_FILE}" -ot "${STRIPPED_FILE}" && "${INPUT_FILE}" -ot "${DEBUG_FILE}" ]]; then
+    echo "Stripped artifacts are up to date."
+    echo "  ${STRIPPED_FILE}"
+    echo "  ${DEBUG_FILE}"
+    exit 0
+fi
+
 cp "${INPUT_FILE}" "${STRIPPED_FILE}"
 "${OBJCOPY}" --only-keep-debug "${INPUT_FILE}" "${DEBUG_FILE}"
 "${STRIP}" --strip-debug --strip-unneeded "${STRIPPED_FILE}"
 "${OBJCOPY}" --add-gnu-debuglink="${DEBUG_FILE}" "${STRIPPED_FILE}"
+touch -r "${INPUT_FILE}" "${STRIPPED_FILE}"
+touch -r "${INPUT_FILE}" "${DEBUG_FILE}"
 
 echo "Created:"
 echo "  ${STRIPPED_FILE}"
