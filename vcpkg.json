@@ -1,0 +1,24 @@
+{
+  "dependencies": [
+    "boost-asio",
+    "cli11",
+    "grpc",
+    "gtest",
+    "protobuf",
+    "spdlog",
+    {
+      "name": "libgpiod",
+      "default-features": false,
+      "features": [ "cxx-bindings" ]
+    },
+    {
+      "name": "gstreamer",
+      "default-features": false,
+      "features": [
+        "plugins-base",
+        "plugins-good",
+        "openh264"
+      ]
+    }
+  ]
+}
