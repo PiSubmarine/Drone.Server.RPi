@@ -33,7 +33,7 @@
 #include "PiSubmarine/PWM/Linux/Driver.h"
 #include "PiSubmarine/SPI/Linux/Driver.h"
 #include "PiSubmarine/Servo/SG90/Controller.h"
-#include "PiSubmarine/Video/Server/GStreamer/Source.h"
+#include "PiSubmarine/Video/Server/GStreamer/Head.h"
 #include "PiSubmarine/Video/Subscription/Api/Endpoint.h"
 
 namespace PiSubmarine::Drone::Server::RPi
@@ -143,6 +143,32 @@ namespace PiSubmarine::Drone::Server::RPi
 
 			return text;
 		}
+
+		[[nodiscard]] PiSubmarine::Video::Server::GStreamer::ExternalProcessHead CreateDefaultRpicamVideoHead()
+		{
+			return PiSubmarine::Video::Server::GStreamer::ExternalProcessHead{
+				.Executable = "rpicam-vid",
+				.Arguments = {
+					"--timeout",
+					"0",
+					"--nopreview",
+					"--flush",
+					"--inline",
+					"--codec",
+					"h264",
+					"--width",
+					"1280",
+					"--height",
+					"720",
+					"--framerate",
+					"30",
+					"--bitrate",
+					"1000000",
+					"-o",
+					"-"
+				}
+			};
+		}
 	}
 }
 
@@ -157,12 +183,15 @@ int main(const int argc, char** argv)
 	{
 		Runtime::Config config;
 		HardwareConfig hardware;
+
+		std::string grpcAddress = "0.0.0.0:50051";
+		std::string controlAddress = "0.0.0.0:50052";
+		std::string telemetryAddress = "0.0.0.0:50053";
+
 		std::filesystem::path serverCertificatePath;
 		std::filesystem::path serverPrivateKeyPath;
 		std::filesystem::path clientCertificateAuthorityPath;
-		auto controlAddress = FormatEndpoint(config.ControlEndpoint);
-		auto telemetryAddress = FormatEndpoint(config.TelemetryEndpoint);
-		std::string grpcAddress = "0.0.0.0:50051";
+
 		std::string videoResourceId = config.VideoController.ResourceId.Value;
 		std::string videoSourceDescription;
 		std::string startupVideoEndpoint;
@@ -278,13 +307,16 @@ int main(const int argc, char** argv)
 		config.GrpcServer.ServerPrivateKey = ReadTextFile(serverPrivateKeyPath);
 		config.GrpcServer.ClientCertificateAuthority = ReadTextFile(clientCertificateAuthorityPath);
 		config.VideoController.ResourceId = PiSubmarine::Lease::Api::ResourceId{.Value = videoResourceId};
+		config.VideoController.VideoHead = CreateDefaultRpicamVideoHead();
 		hardware.Battery.DesignCapacity = PiSubmarine::Max17261::MicroAmpereHours{batteryDesignCapacityUah};
 		hardware.Battery.ChargeTerminationCurrent = PiSubmarine::Max17261::MicroAmperes{batteryChargeTerminationUa};
 		hardware.Battery.EmptyVoltage = PiSubmarine::Max17261::MicroVolts{batteryEmptyVoltageUv};
 		if (!videoSourceDescription.empty())
 		{
-			config.VideoController.VideoSource = PiSubmarine::Video::Server::GStreamer::ElementSource{
-				.Description = videoSourceDescription
+			config.VideoController.VideoHead = PiSubmarine::Video::Server::GStreamer::AutoDetectPipelineHead{
+				.VideoSource = PiSubmarine::Video::Server::GStreamer::ElementSource{
+					.Description = videoSourceDescription
+				}
 			};
 		}
 
@@ -329,7 +361,7 @@ int main(const int argc, char** argv)
 			lampsAndBallastPowerManager,
 			PiSubmarine::Drv8908::PwmGenerator::PwmGenerator1,
 			PiSubmarine::Drv8908::HalfBridgeBitMask::HalfBridge1 | PiSubmarine::Drv8908::HalfBridgeBitMask::HalfBridge2,
-			PiSubmarine::Motor::Drv8908::BridgeSide::High,
+			PiSubmarine::Drv8908::HalfBridgeBitMask::HalfBridge3 | PiSubmarine::Drv8908::HalfBridgeBitMask::HalfBridge4,
 			hardware.BallastMotor);
 		PiSubmarine::Drone::Server::LoggerFactory loggerFactory;
 
